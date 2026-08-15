@@ -93,18 +93,28 @@ curl -X POST http://localhost:3333/api/auth/login \
   -d '{"email":"seu@email.com","senha":"umaSenhaForte123"}'
 ```
 
-## Deploy (recomendado: Render)
+## Deploy (Vercel — mesma conta do site)
 
-O site principal continua estático no Vercel — só a API precisa de um lugar que rode Node.js o tempo todo (o Vercel free tier é voltado a funções serverless, então pra um Express "tradicional" o [Render](https://render.com) é mais direto e tem plano free):
+Como o site já está no Vercel, dá pra hospedar essa API lá também, como um **segundo projeto** (sem precisar de conta em outro lugar). O Vercel roda a API como função serverless — o arquivo `api/[...path].js` encaminha qualquer requisição em `/api/*` pro Express (`src/app.js`).
 
 1. Suba este repositório no GitHub (separado do repositório do site).
-2. No Render: **New → Web Service** → conecte o repositório.
-3. Build command: `npm install` — Start command: `npm start`.
-4. Em **Environment**, adicione as mesmas variáveis do `.env` (`DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_ORIGIN`).
-5. Depois do primeiro deploy, rode as migrations uma vez (Render tem uma aba "Shell" no painel do serviço): `npm run migrate` e `npm run seed:colaborador -- "Nome" "email" "senha"`.
-6. Copie a URL pública que o Render gerar (algo como `https://reviva-backend.onrender.com`) — ela vai no `API_BASE_URL` do frontend (`app.js` do site).
+2. No [vercel.com](https://vercel.com): **Add New → Project** → importe o repositório `reviva-backend`.
+3. Framework Preset: deixa como **"Other"** (não é Next.js nem nada específico — o Vercel detecta a pasta `api/` sozinho). Não precisa configurar build command nem output directory.
+4. Em **Environment Variables**, adiciona as mesmas do `.env`: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_ORIGIN` (use o domínio real do site, ex: `https://projetoreviva.vercel.app`).
+5. Clica em **Deploy**. Ao terminar, você recebe uma URL tipo `https://reviva-backend.vercel.app`.
+6. Rode as migrations e crie seu colaborador **localmente antes** (rodando `npm run migrate` e `npm run seed:colaborador` na sua máquina, já que eles gravam direto no banco via `DATABASE_URL` — não precisam rodar "na nuvem").
+7. Copie a URL do passo 5 e cole em `API_BASE_URL` (`app.js` e `painel.js`, no repositório do site).
 
-> Observação: no plano free do Render, o serviço "dorme" depois de um tempo sem uso e demora alguns segundos pra acordar na primeira requisição — normal para um projeto desse porte, sem custo.
+> **Importante sobre o banco:** como funções serverless podem rodar várias instâncias ao mesmo tempo, use a connection string do **pooler** do Supabase (a que tem `pooler.supabase.com` no meio) — é exatamente a que você já está usando, então não precisa mudar nada.
+
+### Alternativa: Render
+
+Se preferir um servidor "tradicional" (sempre ligado, sem cold start) em vez de serverless, o [Render](https://render.com) também funciona bem — plano free, só que "dorme" depois de um tempo sem uso:
+
+1. New → Web Service → conecte o repositório.
+2. Build command: `npm install` — Start command: `npm start` (esse comando usa `src/server.js`, que só é usado localmente/no Render, nunca no Vercel).
+3. Configure as mesmas variáveis de ambiente do `.env`.
+4. Rode as migrations pela aba "Shell" do painel do Render, ou local mesmo (como no passo 6 acima).
 
 ## Segurança
 
