@@ -6,6 +6,16 @@ const inscricoesRoutes = require('./routes/inscricoes');
 
 const app = express();
 
+// Headers de segurança básicos — feito à mão (sem helmet) pra não adicionar
+// mais uma dependência a instalar/dar deploy de novo.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+
 app.use(express.json({ limit: '10kb' }));
 
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || '')

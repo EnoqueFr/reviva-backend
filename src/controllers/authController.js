@@ -2,6 +2,12 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
+// Hash "fantasma" usado só pra igualar o tempo de resposta quando o e-mail não existe.
+// Sem isso, "e-mail não encontrado" responde na hora e "senha errada" demora (bcrypt.compare
+// é lento de propósito) — essa diferença de tempo permite descobrir quais e-mails existem
+// na base mesmo com a mensagem de erro sendo genérica nos dois casos.
+const HASH_FANTASMA = '$2a$12$C6UzMDM.H6dfI/f/IKcEeOMSHYE9WQjMPGvzMj1cN1Sq7bR7VFT4a';
+
 async function login(req, res) {
   const { email, senha } = req.body || {};
 
@@ -16,14 +22,13 @@ async function login(req, res) {
     );
     const colaborador = rows[0];
 
+    // Roda o bcrypt.compare SEMPRE (mesmo sem colaborador encontrado), contra o hash
+    // fantasma nesse caso — assim o tempo de resposta é parecido nos dois cenários.
+    const senhaConfere = await bcrypt.compare(senha, colaborador ? colaborador.senha_hash : HASH_FANTASMA);
+
     // Mensagem genérica de propósito em ambos os casos (usuário não existe / senha errada),
     // pra não revelar pra quem está tentando adivinhar se um e-mail existe na base.
-    if (!colaborador) {
-      return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
-    }
-
-    const senhaConfere = await bcrypt.compare(senha, colaborador.senha_hash);
-    if (!senhaConfere) {
+    if (!colaborador || !senhaConfere) {
       return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
     }
 
