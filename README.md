@@ -95,11 +95,11 @@ curl -X POST http://localhost:3333/api/auth/login \
 
 ## Deploy (Vercel — mesma conta do site)
 
-Como o site já está no Vercel, dá pra hospedar essa API lá também, como um **segundo projeto** (sem precisar de conta em outro lugar). O Vercel roda a API como função serverless — o arquivo `api/[...path].js` encaminha qualquer requisição em `/api/*` pro Express (`src/app.js`).
+Como o site já está no Vercel, dá pra hospedar essa API lá também, como um **segundo projeto** (sem precisar de conta em outro lugar). O Vercel roda a API como função serverless — `vercel.json` redireciona qualquer requisição em `/api/*` pro arquivo `api/index.js`, que encaminha tudo pro Express (`src/app.js`).
 
 1. Suba este repositório no GitHub (separado do repositório do site).
 2. No [vercel.com](https://vercel.com): **Add New → Project** → importe o repositório `reviva-backend`.
-3. Framework Preset: deixa como **"Other"** (não é Next.js nem nada específico — o Vercel detecta a pasta `api/` sozinho). Não precisa configurar build command nem output directory.
+3. Framework Preset: troque para **"Other"** (o preset "Express" tem um modo zero-config que conflita com nossa função customizada e causa timeout). Em **Build and Output Settings**, ative o **Install Command** e deixe `npm install` (ou `npm ci`); Build Command e Output Directory continuam desligados (não geram nada estático).
 4. Em **Environment Variables**, adiciona as mesmas do `.env`: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_ORIGIN` (use o domínio real do site, ex: `https://projetoreviva.vercel.app`).
 5. Clica em **Deploy**. Ao terminar, você recebe uma URL tipo `https://reviva-backend.vercel.app`.
 6. Rode as migrations e crie seu colaborador **localmente antes** (rodando `npm run migrate` e `npm run seed:colaborador` na sua máquina, já que eles gravam direto no banco via `DATABASE_URL` — não precisam rodar "na nuvem").
@@ -123,3 +123,13 @@ Se preferir um servidor "tradicional" (sempre ligado, sem cold start) em vez de 
 - Rate limit no login (10 tentativas / 15 min) e no formulário público (5 envios / hora por IP).
 - CORS restrito à origem configurada em `FRONTEND_ORIGIN` — nenhum outro site consegue chamar a API do navegador.
 - Este repositório não guarda dados pessoais no código — tudo fica só no banco.
+
+## LGPD
+
+A tabela `inscricoes` guarda dados pessoais de crianças/adolescentes e de seus responsáveis. Pontos que valem registrar (sem expor nenhum dado real aqui, claro):
+
+- **Minimização**: só os 4 campos estritamente necessários pra viabilizar a matrícula (nome da criança, idade, nome do responsável, WhatsApp) — ver `schema.sql`. Nenhum campo de dado sensível (saúde, documento, endereço) existe na tabela.
+- **Acesso restrito**: só rotas autenticadas (`GET`/`PATCH /api/inscricoes`) leem os dados — exige o JWT de um colaborador cadastrado em `colaboradores`. A rota pública (`POST /api/inscricoes`) só escreve, nunca lê de volta os outros registros.
+- **Sem exposição em logs**: os `console.error` do código só logam mensagens de erro genéricas, nunca o corpo da requisição (que teria os dados pessoais).
+- **Exclusão sob pedido**: hoje é manual — rodar um `DELETE FROM inscricoes WHERE id = '...'` direto no banco (ex: SQL Editor do Supabase), mediante pedido do responsável. Não há endpoint de auto-exclusão implementado ainda.
+- **Backups**: dependem do provedor de Postgres usado (o Supabase, por exemplo, faz backup automático do projeto) — não há rotina de backup própria neste repositório.
